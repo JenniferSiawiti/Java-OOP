@@ -1,0 +1,11 @@
+
+Happy      : 25%
+Sad        : 13%
+Angry      : 25%
+Surprised  : 25%
+Neutral    : 8%
+
+Dominant Emotion : Happy
+Confidence       : 25%
+
+Frames Processed: 105

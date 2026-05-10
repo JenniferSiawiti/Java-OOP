@@ -1,0 +1,8 @@
+app\MainApp.class
+detection\FaceDetector.class
+org\example\Main.class
+ui\ConsoleUI.class
+report\ReportManager.class
+analysis\EmotionResult.class
+analysis\ExpressionAnalyzer.class
+camera\CameraService.class
