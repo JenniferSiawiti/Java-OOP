@@ -6,6 +6,7 @@ public class FaceDetector {
 
     private CascadeClassifier faceCascade;
 
+    // Constructornya yah gengz
     public FaceDetector() {
 
         faceCascade =
@@ -14,12 +15,15 @@ public class FaceDetector {
                 );
     }
 
+   
     public FaceData detectFace(Mat frame) {
 
         MatOfRect faces = new MatOfRect();
 
+        
         faceCascade.detectMultiScale(frame, faces);
 
+     
         if (faces.toArray().length == 0) {
 
             System.out.println("No face detected!");
@@ -27,6 +31,7 @@ public class FaceDetector {
             return null;
         }
 
+        
         Rect rect = faces.toArray()[0];
 
         Imgproc.rectangle(
@@ -40,11 +45,18 @@ public class FaceDetector {
 
         System.out.println("Face detected!");
 
+        double eyeMovement = 0.0;
+        double mouthMovement = 0.0;
+        double eyebrowPosition = 0.0;
+
         return new FaceData(
                 rect.x,
                 rect.y,
                 rect.width,
-                rect.height
+                rect.height,
+                eyeMovement,
+                mouthMovement,
+                eyebrowPosition
         );
     }
 }
