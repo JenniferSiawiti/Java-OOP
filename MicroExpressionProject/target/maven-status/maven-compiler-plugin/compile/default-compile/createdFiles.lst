@@ -3,6 +3,7 @@ detection\FaceDetector.class
 org\example\Main.class
 ui\ConsoleUI.class
 report\ReportManager.class
-analysis\EmotionResult.class
 analysis\ExpressionAnalyzer.class
+analysis\FaceData.class
+analysis\ExpressionResult.class
 camera\CameraService.class

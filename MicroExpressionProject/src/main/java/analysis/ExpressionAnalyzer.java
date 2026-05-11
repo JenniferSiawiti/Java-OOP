@@ -5,17 +5,28 @@ import org.opencv.imgproc.Imgproc;
 
 public class ExpressionAnalyzer {
 
-    private int happyTotal = 0;
-    private int sadTotal = 0;
-    private int angryTotal = 0;
-    private int surprisedTotal = 0;
-    private int neutralTotal = 0;
+    private double happy = 0;
+    private double sad = 0;
+    private double angry = 0;
+    private double surprised = 0;
+    private double neutral = 0;
 
-    private int frameCount = 0;
-    private Mat previousGray = null;
+    public void reset() {
+        happy = 0;
+        sad = 0;
+        angry = 0;
+        surprised = 0;
+        neutral = 0;
+    }
 
     public void processFrame(Mat frame, Rect face) {
-        if (frame == null || frame.empty() || face == null) return;
+        ExpressionResult result = analyzeFrame(frame, face);
+    }
+
+    public ExpressionResult analyzeFrame(Mat frame, Rect face) {
+        if (frame == null || frame.empty() || face == null) {
+            return new ExpressionResult("No Face Detected", 0);
+        }
 
         Mat faceROI = new Mat(frame, face);
 
@@ -24,122 +35,151 @@ public class ExpressionAnalyzer {
         Imgproc.resize(gray, gray, new Size(120, 120));
         Imgproc.equalizeHist(gray, gray);
 
-        Mat upperFace = gray.submat(0, 45, 0, 120);
-        Mat eyeArea = gray.submat(30, 60, 0, 120);
-        Mat mouthArea = gray.submat(75, 120, 0, 120);
+        Mat eyes = gray.submat(25, 58, 15, 105);
+        Mat eyebrows = gray.submat(10, 35, 15, 105);
+        Mat mouth = gray.submat(72, 115, 25, 95);
 
-        double upperContrast = getContrast(upperFace);
-        double eyeContrast = getContrast(eyeArea);
-        double mouthContrast = getContrast(mouthArea);
+        double eyeContrast = contrast(eyes);
+        double eyebrowContrast = contrast(eyebrows);
+        double mouthContrast = contrast(mouth);
 
-        double mouthBrightness = Core.mean(mouthArea).val[0];
-        double eyeBrightness = Core.mean(eyeArea).val[0];
+        double eyeDarkness = 255 - Core.mean(eyes).val[0];
+        double mouthDarkness = 255 - Core.mean(mouth).val[0];
 
-        double motion = 0;
-        if (previousGray != null) {
-            Mat diff = new Mat();
-            Core.absdiff(gray, previousGray, diff);
-            motion = Core.mean(diff).val[0];
+        double happyScore = 20;
+        double sadScore = 20;
+        double angryScore = 20;
+        double surprisedScore = 20;
+        double neutralScore = 20;
+
+        if (mouthContrast > 52 && mouthDarkness > 80 && mouthDarkness < 120) {
+            happyScore += 18;
         }
 
-        previousGray = gray.clone();
-
-        int happy = 20;
-        int sad = 20;
-        int angry = 20;
-        int surprised = 20;
-        int neutral = 20;
-
-        // Smile approximation: mouth area changes/brightens
-        if (mouthContrast > 52 && mouthBrightness > 95) {
-            happy += 18;
+        if (mouthDarkness < 85 && eyeDarkness > 85) {
+            sadScore += 18;
         }
 
-        // Sad approximation: low movement + darker mouth/eye area
-        if (motion < 4 && mouthBrightness < 105 && eyeBrightness < 120) {
-            sad += 20;
+        if (eyebrowContrast > 55 || eyeContrast > 58) {
+            angryScore += 18;
         }
 
-        // Angry approximation: strong eye/upper-face contrast
-        if (upperContrast > 58 && eyeContrast > 52) {
-            angry += 18;
+        if (mouthDarkness > 120 || mouthContrast > 65) {
+            surprisedScore += 18;
         }
 
-        // Surprised approximation: high movement or large face change
-        if (motion > 8) {
-            surprised += 22;
+        if (mouthContrast < 50 && eyeContrast < 55 && eyebrowContrast < 55) {
+            neutralScore += 18;
         }
 
-        // Neutral only if nothing strongly changes
-        if (motion < 3 && mouthContrast < 50 && upperContrast < 55) {
-            neutral += 12;
-        } else {
-            neutral -= 8;
-        }
+        happy += happyScore;
+        sad += sadScore;
+        angry += angryScore;
+        surprised += surprisedScore;
+        neutral += neutralScore;
 
-        if (neutral < 5) neutral = 5;
-
-        int total = happy + sad + angry + surprised + neutral;
-
-        happyTotal += (happy * 100) / total;
-        sadTotal += (sad * 100) / total;
-        angryTotal += (angry * 100) / total;
-        surprisedTotal += (surprised * 100) / total;
-        neutralTotal += (neutral * 100) / total;
-
-        frameCount++;
+        return getCurrentResult(happyScore, sadScore, angryScore, surprisedScore, neutralScore);
     }
 
-    private double getContrast(Mat mat) {
+    private ExpressionResult getCurrentResult(
+            double happyScore,
+            double sadScore,
+            double angryScore,
+            double surprisedScore,
+            double neutralScore
+    ) {
+        double max = happyScore;
+        String emotion = "Happy";
+
+        if (sadScore > max) {
+            max = sadScore;
+            emotion = "Sad";
+        }
+
+        if (angryScore > max) {
+            max = angryScore;
+            emotion = "Angry";
+        }
+
+        if (surprisedScore > max) {
+            max = surprisedScore;
+            emotion = "Surprised";
+        }
+
+        if (neutralScore > max) {
+            max = neutralScore;
+            emotion = "Neutral";
+        }
+
+        double total = happyScore + sadScore + angryScore + surprisedScore + neutralScore;
+        return new ExpressionResult(emotion, max / total);
+    }
+
+    private double contrast(Mat mat) {
         MatOfDouble mean = new MatOfDouble();
         MatOfDouble std = new MatOfDouble();
         Core.meanStdDev(mat, mean, std);
         return std.toArray()[0];
     }
 
-    public EmotionResult calculateFinalResult() {
-        EmotionResult result = new EmotionResult();
+    public ExpressionResult calculateFinalResult() {
+        double total = happy + sad + angry + surprised + neutral;
 
-        if (frameCount == 0) {
-            result.happy = 0;
-            result.sad = 0;
-            result.angry = 0;
-            result.surprised = 0;
-            result.neutral = 0;
-            result.dominantEmotion = "No Face Detected";
-            result.confidence = 0;
-            return result;
+        if (total == 0) {
+            return new ExpressionResult("No Face Detected", 0);
         }
 
-        result.happy = happyTotal / frameCount;
-        result.sad = sadTotal / frameCount;
-        result.angry = angryTotal / frameCount;
-        result.surprised = surprisedTotal / frameCount;
-        result.neutral = neutralTotal / frameCount;
+        double max = happy;
+        String emotion = "Happy";
 
-        result.confidence = result.happy;
-        result.dominantEmotion = "Happy";
-
-        if (result.sad > result.confidence) {
-            result.confidence = result.sad;
-            result.dominantEmotion = "Sad";
+        if (sad > max) {
+            max = sad;
+            emotion = "Sad";
         }
 
-        if (result.angry > result.confidence) {
-            result.confidence = result.angry;
-            result.dominantEmotion = "Angry";
+        if (angry > max) {
+            max = angry;
+            emotion = "Angry";
         }
 
-        if (result.surprised > result.confidence) {
-            result.confidence = result.surprised;
-            result.dominantEmotion = "Surprised";
+        if (surprised > max) {
+            max = surprised;
+            emotion = "Surprised";
         }
 
-        if (result.neutral > result.confidence + 5) {
-            result.confidence = result.neutral;
-            result.dominantEmotion = "Neutral";
+        if (neutral > max) {
+            max = neutral;
+            emotion = "Neutral";
         }
 
-        return result;
+        return new ExpressionResult(emotion, max / total);
     }
+
+    public String getPercentageReport(ExpressionResult finalResult, int frames) {
+        double total = happy + sad + angry + surprised + neutral;
+
+        if (total == 0) {
+            return "Final Result: No Face Detected\nFrames: " + frames;
+        }
+
+        return String.format(
+                "Final Result: %s\nHappy: %d%% | Sad: %d%% | Angry: %d%% | Surprised: %d%% | Neutral: %d%%",
+                finalResult.getEmotion(),
+                percent(happy, total),
+                percent(sad, total),
+                percent(angry, total),
+                percent(surprised, total),
+                percent(neutral, total)
+        );
+    }
+
+    private int percent(double value, double total) {
+        return (int) Math.round((value * 100.0) / total);
+    }
+
+    public int getHappy() { return (int) happy; }
+    public int getSad() { return (int) sad; }
+    public int getAngry() { return (int) angry; }
+    public int getSurprised() { return (int) surprised; }
+    public int getNeutral() { return (int) neutral; }
 }

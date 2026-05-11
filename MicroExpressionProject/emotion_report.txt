@@ -1,13 +1,12 @@
-=================================
 MICRO-EXPRESSION REPORT
-=================================
+=======================
 
-Happy      : 19%
-Sad        : 19%
-Angry      : 19%
-Surprised  : 19%
-Neutral    : 19%
+Dominant Emotion: Angry
+Confidence: 28%
+Frames Processed: 150
 
-Dominant Emotion : Happy
-Confidence       : 19%
-Frames Processed : 4671585
+Happy: 15%
+Sad: 15%
+Angry: 28%
+Surprised: 28%
+Neutral: 15%
